@@ -706,6 +706,21 @@ function applyData(data){
         avatarPlaceholder.style.display = 'none';
       }
     }
+
+    // Social links (WhatsApp / Instagram / LinkedIn)
+    const waNum = (p.whatsapp || '').replace(/[^0-9]/g, '');
+    const waLink = waNum ? `https://wa.me/${waNum}` : null;
+    const igHandle = (p.instagram || '').replace(/^@/, '').trim();
+    const igLink = igHandle ? (igHandle.startsWith('http') ? igHandle : `https://instagram.com/${igHandle}`) : null;
+    const liHandle = (p.linkedin || '').trim();
+    const liLink = liHandle ? (liHandle.startsWith('http') ? liHandle : `https://linkedin.com/in/${liHandle}`) : null;
+
+    [['social-whatsapp', waLink], ['social-whatsapp2', waLink],
+     ['social-instagram', igLink], ['social-instagram2', igLink],
+     ['social-linkedin', liLink], ['social-linkedin2', liLink]].forEach(([id, link])=>{
+      const el = document.getElementById(id);
+      if(el && link) el.href = link;
+    });
   }
 
   if(data.education){
