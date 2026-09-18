@@ -1,7 +1,25 @@
 {
-  "name": "portfolio-backend",
-  "version": "1.0.0",
+  "name": "faris-portfolio",
+  "private": true,
   "dependencies": {
-    "@netlify/blobs": "^7.0.0"
-  }
+    "@netlify/blobs": "^8.2.0"
+  },
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/farislashen7-hub/portfolio.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/farislashen7-hub/portfolio/issues"
+  },
+  "homepage": "https://github.com/farislashen7-hub/portfolio#readme"
 }

@@ -25,14 +25,19 @@ export default async (req, context) => {
       });
     }
 
-    // حفظ البيانات (POST)
+    // حفظ البيانات (POST) - تمت إضافة الحماية هنا
     if (req.method === "POST") {
-      const body = await req.json();
-      
-      // (اختياري) يمكنك إضافة تحقق من الـ Secret هنا إذا أردت
-      // const secret = req.headers.get("x-admin-secret");
-      // if (secret !== "YOUR_SECRET") return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers });
+      const secret = req.headers.get("x-admin-secret");
+      const expectedSecret = Netlify.env.get("ADMIN_SECRET"); // بيجيب الباسورد من إعدادات Netlify
 
+      if (!expectedSecret || secret !== expectedSecret) {
+        return new Response(JSON.stringify({ error: "Unauthorized: Invalid or missing secret" }), { 
+          status: 401, 
+          headers 
+        });
+      }
+
+      const body = await req.json();
       await store.setJSON("data", body);
 
       return new Response(JSON.stringify({ success: true, message: "Saved successfully" }), {
@@ -52,4 +57,9 @@ export default async (req, context) => {
       headers
     });
   }
+};
+
+// توحيد مسار الـ API ليكون سهل الاستخدام
+export const config = {
+  path: "/api/portfolio"
 };
