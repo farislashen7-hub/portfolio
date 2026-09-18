@@ -68,6 +68,12 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);
 .gate .err{color:var(--danger);font-size:13px;min-height:16px;}
 .hidden{display:none !important;}
 .hint{font-size:12px;color:var(--text-dim);margin-top:4px;}
+.gallery-thumbs{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0;}
+.gallery-thumb{position:relative;width:76px;height:76px;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--bg-elevated);}
+.gallery-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.gallery-thumb-cover{position:absolute;bottom:0;left:0;right:0;background:rgba(94,234,212,.9);color:#04211C;font-size:9px;font-weight:700;text-align:center;padding:2px 0;text-transform:uppercase;letter-spacing:.04em;}
+.gallery-thumb-del{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;border:none;background:rgba(8,10,14,.75);color:#fff;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.gallery-thumb-del:hover{background:var(--danger);}
 </style>
 </head>
 <body>
@@ -99,7 +105,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);
         <img id="photoPreview" class="photo-preview" alt="preview">
         <div>
           <input type="file" id="photoInput" accept="image/*">
-          <div class="hint">Square image recommended. Stored as base64 (keep under ~1MB).</div>
+          <div class="hint">Will be automatically resized & compressed.</div>
         </div>
       </div>
       <div class="row">
@@ -113,10 +119,10 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);
       <label>Bio</label>
       <textarea id="p_bio"></textarea>
       <div class="row">
-        <div><label>WhatsApp number (digits, e.g. 201234567890)</label><input type="text" id="p_whatsapp"></div>
-        <div><label>Instagram (handle or URL)</label><input type="text" id="p_instagram"></div>
+        <div><label>WhatsApp number</label><input type="text" id="p_whatsapp"></div>
+        <div><label>Instagram</label><input type="text" id="p_instagram"></div>
       </div>
-      <label>LinkedIn (handle or URL)</label>
+      <label>LinkedIn</label>
       <input type="text" id="p_linkedin">
     </div>
 
@@ -130,7 +136,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);
       <label>Languages</label>
       <div class="chip-list" id="langChips"></div>
       <div class="add-inline">
-        <input type="text" id="langNew" placeholder="e.g. English (B2 — Upper Intermediate)">
+        <input type="text" id="langNew" placeholder="e.g. English (B2)">
         <button class="btn small" id="langAddBtn">Add</button>
       </div>
     </div>
@@ -163,10 +169,9 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);
 </div>
 
 <script>
-/* ================= CONFIG ================= */
 const ADMIN_PASSCODE = "faris2026";
+const API_URL = "/api/portfolio";
 
-/* ================= STATE ================= */
 let data = {
   profile: { name:"", title:"", location:"", email:"", whatsapp:"", instagram:"", linkedin:"", bio:"", photo:null },
   education: { school:"", status:"" },
@@ -179,7 +184,8 @@ let data = {
 function uid(){ return Math.random().toString(36).slice(2,9); }
 function escapeHtml(s){ return String(s ?? "").replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-function compressImage(file, maxDim = 480, quality = 0.75){
+// Heavy compression to prevent payload limits
+function compressImage(file, maxDim = 250, quality = 0.6){
   return new Promise((resolve, reject)=>{
     const reader = new FileReader();
     reader.onerror = ()=> reject(new Error('Could not read file'));
@@ -201,7 +207,6 @@ function compressImage(file, maxDim = 480, quality = 0.75){
   });
 }
 
-/* ================= GATE ================= */
 document.getElementById('gateBtn').addEventListener('click', tryUnlock);
 document.getElementById('gatePass').addEventListener('keydown', e=>{ if(e.key==='Enter') tryUnlock(); });
 function tryUnlock(){
@@ -214,9 +219,6 @@ function tryUnlock(){
     document.getElementById('gateErr').textContent = 'Incorrect passcode.';
   }
 }
-
-/* ================= LOAD ================= */
-const API_URL = "/.netlify/functions/portfolio-data";
 
 async function init(){
   try{
@@ -238,7 +240,6 @@ async function init(){
   renderAll();
 }
 
-/* ================= RENDER ================= */
 function renderAll(){
   renderProfile();
   renderEducation();
@@ -260,6 +261,7 @@ function renderProfile(){
   const preview = document.getElementById('photoPreview');
   preview.src = p.photo || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72'%3E%3Crect width='72' height='72' fill='%2310141B'/%3E%3C/svg%3E";
 }
+
 ['p_name','p_title','p_location','p_email','p_bio','p_whatsapp','p_instagram','p_linkedin'].forEach(id=>{
   document.addEventListener('input', e=>{
     if(e.target.id !== id) return;
@@ -267,11 +269,12 @@ function renderProfile(){
     data.profile[key] = e.target.value;
   });
 });
+
 document.getElementById('photoInput').addEventListener('change', async e=>{
   const file = e.target.files[0];
   if(!file) return;
   try{
-    const dataUrl = await compressImage(file, 480, 0.75);
+    const dataUrl = await compressImage(file, 250, 0.6);
     data.profile.photo = dataUrl;
     document.getElementById('photoPreview').src = dataUrl;
   }catch(err){
@@ -297,7 +300,6 @@ document.getElementById('langAddBtn').addEventListener('click', ()=>{
   if(input.value.trim()){ data.languages.push(input.value.trim()); input.value=''; renderEducation(); }
 });
 
-/* ---- Skills ---- */
 function renderSkills(){
   const wrap = document.getElementById('skillGroupsWrap');
   wrap.innerHTML = '';
@@ -306,12 +308,12 @@ function renderSkills(){
     block.className = 'group-block';
     block.innerHTML = `
       <div class="block-head">
-        <input type="text" data-gi="${gi}" class="group-title" placeholder="Group title (e.g. AI & Automation)" value="${escapeHtml(group.title)}" style="font-weight:600;">
+        <input type="text" data-gi="${gi}" class="group-title" value="${escapeHtml(group.title)}" style="font-weight:600;">
         <button class="btn small danger group-del" data-gi="${gi}"><i class="fa-solid fa-trash"></i></button>
       </div>
       <div class="chip-list" data-gi="${gi}" id="chips-${gi}"></div>
       <div class="add-inline">
-        <input type="text" class="item-new" data-gi="${gi}" placeholder="Add skill/tool...">
+        <input type="text" class="item-new" data-gi="${gi}" placeholder="Add skill...">
         <button class="btn small item-add" data-gi="${gi}">Add</button>
       </div>
     `;
@@ -322,31 +324,20 @@ function renderSkills(){
     `).join('');
   });
 
-  wrap.querySelectorAll('.group-title').forEach(inp=>{
-    inp.addEventListener('input', ()=> data.skills[+inp.dataset.gi].title = inp.value);
-  });
-  wrap.querySelectorAll('.group-del').forEach(btn=>{
-    btn.addEventListener('click', ()=>{ data.skills.splice(+btn.dataset.gi,1); renderSkills(); });
-  });
-  wrap.querySelectorAll('.item-del').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      data.skills[+btn.dataset.gi].items.splice(+btn.dataset.ii,1); renderSkills();
-    });
-  });
-  wrap.querySelectorAll('.item-add').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const gi = +btn.dataset.gi;
-      const input = wrap.querySelector(`.item-new[data-gi="${gi}"]`);
-      if(input.value.trim()){ data.skills[gi].items.push(input.value.trim()); renderSkills(); }
-    });
-  });
+  wrap.querySelectorAll('.group-title').forEach(inp=> inp.addEventListener('input', ()=> data.skills[+inp.dataset.gi].title = inp.value));
+  wrap.querySelectorAll('.group-del').forEach(btn=> btn.addEventListener('click', ()=>{ data.skills.splice(+btn.dataset.gi,1); renderSkills(); }));
+  wrap.querySelectorAll('.item-del').forEach(btn=> btn.addEventListener('click', ()=>{ data.skills[+btn.dataset.gi].items.splice(+btn.dataset.ii,1); renderSkills(); }));
+  wrap.querySelectorAll('.item-add').forEach(btn=> btn.addEventListener('click', ()=>{
+    const gi = +btn.dataset.gi;
+    const input = wrap.querySelector(`.item-new[data-gi="${gi}"]`);
+    if(input.value.trim()){ data.skills[gi].items.push(input.value.trim()); renderSkills(); }
+  }));
 }
 document.getElementById('addGroupBtn').addEventListener('click', ()=>{
   data.skills.push({ title:"New Group", items:[] });
   renderSkills();
 });
 
-/* ---- Credentials ---- */
 function renderCredentials(){
   const wrap = document.getElementById('credWrap');
   wrap.innerHTML = '';
@@ -360,26 +351,49 @@ function renderCredentials(){
       </div>
       <label>Title</label>
       <input type="text" class="cred-title" data-ci="${ci}" value="${escapeHtml(c.title)}">
-      <label>Issuer / description</label>
+      <label>Issuer</label>
       <input type="text" class="cred-issuer" data-ci="${ci}" value="${escapeHtml(c.issuer||'')}">
-      <label>Font Awesome icon class (e.g. fa-solid fa-brain)</label>
+      <label>Icon class</label>
       <input type="text" class="cred-icon" data-ci="${ci}" value="${escapeHtml(c.icon||'fa-solid fa-certificate')}">
+      <label>Certificate image (optional)</label>
+      <div class="photo-row">
+        <img class="cred-img-preview" style="width:60px;height:60px;border-radius:8px;object-fit:cover;border:1px solid var(--line);background:var(--bg-elevated);"
+             src="${c.image || ''}" alt="">
+        <input type="file" class="cred-img-input" data-ci="${ci}" accept="image/*">
+        ${c.image ? `<button class="btn small danger cred-img-del" data-ci="${ci}" type="button"><i class="fa-solid fa-trash"></i></button>` : ''}
+      </div>
     `;
     wrap.appendChild(block);
   });
-  wrap.querySelectorAll('.cred-del').forEach(btn=>{
-    btn.addEventListener('click', ()=>{ data.credentials.splice(+btn.dataset.ci,1); renderCredentials(); });
-  });
+  wrap.querySelectorAll('.cred-del').forEach(btn=> btn.addEventListener('click', ()=>{ data.credentials.splice(+btn.dataset.ci,1); renderCredentials(); }));
   wrap.querySelectorAll('.cred-title').forEach(inp=> inp.addEventListener('input', ()=> data.credentials[+inp.dataset.ci].title = inp.value));
   wrap.querySelectorAll('.cred-issuer').forEach(inp=> inp.addEventListener('input', ()=> data.credentials[+inp.dataset.ci].issuer = inp.value));
   wrap.querySelectorAll('.cred-icon').forEach(inp=> inp.addEventListener('input', ()=> data.credentials[+inp.dataset.ci].icon = inp.value));
+  wrap.querySelectorAll('.cred-img-input').forEach(inp=>{
+    inp.addEventListener('change', async e=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      try{
+        const dataUrl = await compressImage(file, 500, 0.65);
+        data.credentials[+inp.dataset.ci].image = dataUrl;
+        renderCredentials();
+      }catch(err){
+        alert('Could not process image: ' + err.message);
+      }
+    });
+  });
+  wrap.querySelectorAll('.cred-img-del').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      delete data.credentials[+btn.dataset.ci].image;
+      renderCredentials();
+    });
+  });
 }
 document.getElementById('addCredBtn').addEventListener('click', ()=>{
   data.credentials.push({ icon:"fa-solid fa-certificate", title:"New credential", issuer:"" });
   renderCredentials();
 });
 
-/* ---- Projects ---- */
 function renderProjects(){
   const wrap = document.getElementById('projWrap');
   wrap.innerHTML = '';
@@ -394,9 +408,9 @@ function renderProjects(){
       </div>
       <label>Title</label>
       <input type="text" class="pr-title" data-pi="${pi}" value="${escapeHtml(proj.title||'')}">
-      <label>Short description (shown on card)</label>
+      <label>Short description</label>
       <textarea class="pr-desc" data-pi="${pi}">${escapeHtml(proj.description||'')}</textarea>
-      <label>Full description (shown in modal)</label>
+      <label>Full description</label>
       <textarea class="pr-fulldesc" data-pi="${pi}">${escapeHtml(proj.fullDescription||'')}</textarea>
       <div class="row">
         <div><label>Role</label><input type="text" class="pr-role" data-pi="${pi}" value="${escapeHtml(proj.role||'')}"></div>
@@ -407,16 +421,14 @@ function renderProjects(){
         <div><label>Tags (comma-separated)</label><input type="text" class="pr-tags" data-pi="${pi}" value="${escapeHtml((proj.tags||[]).join(', '))}"></div>
       </div>
       <div class="row">
-        <div><label>Live link (optional)</label><input type="url" class="pr-link" data-pi="${pi}" value="${escapeHtml(proj.link||'')}"></div>
-        <div><label>GitHub link (optional)</label><input type="url" class="pr-github" data-pi="${pi}" value="${escapeHtml(proj.githubLink||'')}"></div>
+        <div><label>Live link</label><input type="url" class="pr-link" data-pi="${pi}" value="${escapeHtml(proj.link||'')}"></div>
+        <div><label>GitHub link</label><input type="url" class="pr-github" data-pi="${pi}" value="${escapeHtml(proj.githubLink||'')}"></div>
       </div>
-      <label>Cover image</label>
-      <div class="photo-row">
-        <img class="proj-img-preview" style="width:60px;height:60px;border-radius:8px;object-fit:cover;border:1px solid var(--line);background:var(--bg-elevated);"
-             src="${proj.imageUrl || ''}" alt="">
-        <input type="file" class="proj-img-input" data-pi="${pi}" accept="image/*">
-      </div>
-      <label>Highlights (bullet points in modal)</label>
+      <label>Project images (gallery — first image is the cover)</label>
+      <div class="gallery-thumbs" data-pi="${pi}"></div>
+      <input type="file" class="proj-img-input" data-pi="${pi}" accept="image/*" multiple>
+      <div class="hint">Pick multiple files at once, or add more later. Drag isn't supported — delete + re-add to reorder.</div>
+      <label>Highlights</label>
       <div class="highlights-wrap" data-pi="${pi}"></div>
       <div class="add-inline">
         <input type="text" class="highlight-new" data-pi="${pi}" placeholder="Add highlight...">
@@ -424,6 +436,23 @@ function renderProjects(){
       </div>
     `;
     wrap.appendChild(block);
+
+    if(!proj.images) proj.images = proj.imageUrl ? [proj.imageUrl] : [];
+    const gWrap = block.querySelector('.gallery-thumbs');
+    gWrap.innerHTML = proj.images.map((src,ii)=>`
+      <div class="gallery-thumb">
+        <img src="${src}" alt="">
+        ${ii===0 ? '<span class="gallery-thumb-cover">Cover</span>' : ''}
+        <button class="gallery-thumb-del" data-pi="${pi}" data-ii="${ii}" type="button"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+    `).join('');
+    gWrap.querySelectorAll('.gallery-thumb-del').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        data.projects[+btn.dataset.pi].images.splice(+btn.dataset.ii,1);
+        renderProjects();
+      });
+    });
+
     const hWrap = block.querySelector('.highlights-wrap');
     (proj.highlights||[]).forEach((h,hi)=>{
       const row = document.createElement('div');
@@ -446,12 +475,16 @@ function renderProjects(){
   wrap.querySelectorAll('.pr-github').forEach(inp=> inp.addEventListener('input', ()=> data.projects[+inp.dataset.pi].githubLink = inp.value));
   wrap.querySelectorAll('.proj-img-input').forEach(inp=>{
     inp.addEventListener('change', async e=>{
-      const file = e.target.files[0];
-      if(!file) return;
+      const files = Array.from(e.target.files || []);
+      if(!files.length) return;
+      const pi = +inp.dataset.pi;
+      if(!data.projects[pi].images) data.projects[pi].images = [];
       try{
-        const dataUrl = await compressImage(file, 640, 0.75);
-        data.projects[+inp.dataset.pi].imageUrl = dataUrl;
-        inp.closest('.photo-row').querySelector('.proj-img-preview').src = dataUrl;
+        for(const file of files){
+          const dataUrl = await compressImage(file, 900, 0.68);
+          data.projects[pi].images.push(dataUrl);
+        }
+        renderProjects();
       }catch(err){
         alert('Could not process image: ' + err.message);
       }
@@ -478,12 +511,11 @@ document.getElementById('addProjBtn').addEventListener('click', ()=>{
   data.projects.push({
     id: uid(), title:"New project", description:"", fullDescription:"",
     role:"Solo automation engineer", duration:"", status:"Live",
-    highlights:[], tags:[], link:"", githubLink:"", imageUrl:""
+    highlights:[], tags:[], link:"", githubLink:"", images:[]
   });
   renderProjects();
 });
 
-/* ================= SAVE ================= */
 async function saveAll(){
   const status = document.getElementById('saveStatus');
   status.className = 'save-status';
@@ -493,11 +525,7 @@ async function saveAll(){
     skills: data.skills, credentials: data.credentials, projects: data.projects
   };
   const body = JSON.stringify(payload);
-  if(body.length > 8_000_000){
-    status.className = 'save-status err';
-    status.textContent = `Payload too large (${(body.length/1e6).toFixed(1)}MB) — shrink an image and retry.`;
-    return;
-  }
+  
   try{
     const res = await fetch(API_URL, {
       method: 'POST',
